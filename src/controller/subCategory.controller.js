@@ -2,18 +2,31 @@ const { asyncHandler } = require("../../utils/asyncHandler");
 const { apiResponse } = require("../../utils/apiResponse");
 const { customError } = require("../../utils/customError");
 const subCategoryModel = require("../models/subCategory.model");
+const categoryModel = require("../models/category.model");
 const { validateSubCategory } = require("../validation/subcategory.validation");
 
 //@desc create subcategory
 exports.createSubCategory = asyncHandler(async (req, res) => {
   const value = await validateSubCategory(req);
-  const subCategory = await subCategoryModel.create(value);
-  if (!subCategory) throw new customError(500, "subCategory create Failed !!");
+  const subCategoryInstance = await subCategoryModel.create(value);
+  if (!subCategoryInstance)
+    throw new customError(500, "subCategory create Failed !!");
+  // category model update
+  await categoryModel.findOneAndUpdate(
+    { _id: value.category },
+    {
+      $push: { subCategory: subCategoryInstance._id },
+    },
+    {
+      new: true,
+    }
+  );
+
   apiResponse.sendSuccess(
     res,
     200,
     "Subcategory created Sucesfull",
-    subCategory
+    subCategoryInstance
   );
 });
 
@@ -76,13 +89,26 @@ exports.deleteSubCategory = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   if (!slug) throw new customError(500, "subCategory slug not found !!");
 
-  const subCategory = await subCategoryModel.findOneAndDelete({ slug: slug });
+  const subCategoryInstance = await subCategoryModel.findOneAndDelete({
+    slug: slug,
+  });
+  // remove sc id from category mode
+  await categoryModel.findOneAndUpdate(
+    { _id: subCategoryInstance.category },
+    {
+      $pull: { subCategory: subCategoryInstance._id },
+    },
+    {
+      new: true,
+    }
+  );
 
-  if (!subCategory) throw new customError(500, "subCategory update Failed !!");
+  if (!subCategoryInstance)
+    throw new customError(500, "subCategory update Failed !!");
   apiResponse.sendSuccess(
     res,
     200,
     "Subcategory delete Sucesfull",
-    subCategory
+    subCategoryInstance
   );
 });
